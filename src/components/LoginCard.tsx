@@ -14,15 +14,22 @@ const LoginCard: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (error) {
       console.error('Login failed', error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Error al iniciar sesión. Por favor verifica tus credenciales.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -41,6 +48,12 @@ const LoginCard: React.FC = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleLogin} className="space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600 font-montserrat">{error}</p>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="email" className="text-studdeo-violet font-montserrat">
               Correo electrónico
@@ -96,19 +109,12 @@ const LoginCard: React.FC = () => {
           <p>
             ¿Olvidaste tu contraseña?{' '}
             <a href="#" className="text-studdeo-violet font-bold hover:underline">
-              ¿Olvidaste tu contraseña?
+              Recuperar
             </a>
           </p>
         </div>
         
-        <div className="mt-4 text-center text-sm text-gray-600 font-montserrat">
-          <p>
-            ¿No tienes cuenta?{' '}
-            <a href="#" className="text-studdeo-violet font-bold hover:underline">
-              Regístrate aquí
-            </a>
-          </p>
-        </div>
+
       </CardContent>
     </Card>
   );
