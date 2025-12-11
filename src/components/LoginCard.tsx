@@ -67,7 +67,9 @@ const LoginCard: React.FC = () => {
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0 bg-white">
       <CardHeader className="text-center pt-6 pb-4">
-        <img src={logo} alt="Studdeo logo and name" className="mx-auto w-40 h-auto mb-4" />
+        <div className="mx-auto ml-[6.1rem]">
+          <img src={logo} alt="Studdeo logo and name" className="w-40 h-auto mb-4" />
+        </div>
         <CardDescription className="text-2xl text-studdeo-violet font-montserrat font-bold">
           Bienvenido
         </CardDescription>
