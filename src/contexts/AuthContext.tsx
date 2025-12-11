@@ -19,7 +19,7 @@ interface JWTPayload {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
   hasPermission: (action: string) => boolean;
   isAuthenticated: boolean;
@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     try {
       // Crear el cuerpo de la petición en formato x-www-form-urlencoded
       const formData = new URLSearchParams();
@@ -105,10 +105,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         role: tokenPayload.role,
       };
 
-      // Guardar el token y datos del usuario
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('token_type', data.token_type);
-      localStorage.setItem('user_data', JSON.stringify(userData));
+      // Guardar el token y datos del usuario solo si rememberMe es true
+      if (rememberMe) {
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('token_type', data.token_type);
+        localStorage.setItem('user_data', JSON.stringify(userData));
+      }
 
       setUser(userData);
       setIsAuthenticated(true);

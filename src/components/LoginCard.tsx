@@ -21,12 +21,18 @@ const LoginCard: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       navigate('/dashboard');
     } catch (error) {
       console.error('Login failed', error);
       if (error instanceof Error) {
-        setError(error.message);
+        let translated = error.message;
+        if (translated === 'Wrong password.') {
+          translated = 'Contraseña incorrecta.';
+        } else if (translated === 'User not found.') {
+          translated = 'Usuario no encontrado.';
+        }
+        setError(translated);
       } else {
         setError('Error al iniciar sesión. Por favor verifica tus credenciales.');
       }
@@ -48,12 +54,6 @@ const LoginCard: React.FC = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleLogin} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600 font-montserrat">{error}</p>
-            </div>
-          )}
-          
           <div className="space-y-2">
             <Label htmlFor="email" className="text-studdeo-violet font-montserrat">
               Correo electrónico
@@ -65,7 +65,7 @@ const LoginCard: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="font-montserrat border-gray-300 focus:border-studdeo-violet focus:ring-studdeo-violet"
+              className={`font-montserrat border-gray-300 focus:border-studdeo-violet focus:ring-studdeo-violet ${error ? 'border-red-500' : ''}`}
             />
           </div>
           <div className="space-y-2">
@@ -79,8 +79,13 @@ const LoginCard: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="font-montserrat border-gray-300 focus:border-studdeo-violet focus:ring-studdeo-violet"
+              className={`font-montserrat border-gray-300 focus:border-studdeo-violet focus:ring-studdeo-violet ${error ? 'border-red-500' : ''}`}
             />
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md mt-2">
+                <p className="text-sm text-red-600 font-montserrat">{error}</p>
+              </div>
+            )}
           </div>
           
           <div className="flex items-center space-x-2">
