@@ -14,7 +14,10 @@ const Dashboard: React.FC = () => {
       <SideBar />
       <main className="flex-1 overflow-auto">
         <div className="p-8">
-          <DashboardHeader userName={user?.name + ' ' + user?.lastname || 'Usuario'} />
+          <DashboardHeader user={user} />
+          <div className="-mx-8">
+            <hr className="mb-6 border-gray-300" />
+          </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

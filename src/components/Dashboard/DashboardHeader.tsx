@@ -2,20 +2,21 @@ import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { UserPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import type { User } from '../../contexts/AuthContext';
 import CreateUserModal from './CreateUserModal';
 
 interface DashboardHeaderProps {
-  userName: string;
+  user: User | null;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ userName }) => {
-  const { user } = useAuth();
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user }) => {
+  const { user: authUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const isAdmin = user?.role?.toLowerCase() === 'administrator' || 
-                  user?.role?.toLowerCase() === 'administrador' || 
-                  user?.role?.toLowerCase() === 'admin';
+  const isAdmin = authUser?.role?.toLowerCase() === 'administrator' || 
+                  authUser?.role?.toLowerCase() === 'administrador' || 
+                  authUser?.role?.toLowerCase() === 'admin';
 
-  const handleCreateUser = (email: string, professors: any[]) => {
+  const handleCreateUser = (email: string, professors: unknown[]) => {
     console.log('Creating user:', { email, professors });
     // Aquí iría la lógica para crear el usuario
     setIsModalOpen(false);
@@ -24,11 +25,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ userName }) => {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-studdeo-violet font-league-spartan">
-            {userName}
-          </h1>
-        </div>
+        <h1 className="text-3xl font-bold text-studdeo-violet font-league-spartan">
+          Bienvenido, {user?.name} {user?.lastname}
+        </h1>
         {isAdmin && (
           <Button 
             onClick={() => setIsModalOpen(true)}
