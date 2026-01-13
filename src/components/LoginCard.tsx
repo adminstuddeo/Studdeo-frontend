@@ -221,7 +221,7 @@ const LoginCard: React.FC = () => {
         <div className="mt-4 text-center text-sm text-gray-600 font-montserrat">
           <p>
             ¿Olvidaste tu contraseña?{' '}
-            <a href="#" className="text-studdeo-violet font-bold hover:underline">
+            <a href="/forgot-password" className="text-studdeo-violet font-bold hover:underline">
               Recuperar
             </a>
           </p>
