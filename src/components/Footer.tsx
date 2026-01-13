@@ -15,17 +15,17 @@ const Footer: React.FC = () => {
             <h3 className="text-lg font-bold text-studdeo-yellow mb-4 font-league-spartan">Enlaces</h3>
             <ul className="space-y-2 text-base">
               <li>
-                <a href="#" className="text-gray-200 hover:text-studdeo-yellow transition-colors font-montserrat">
+                <a href="/terminos" className="text-gray-200 hover:text-studdeo-yellow transition-colors font-montserrat">
                   Términos y condiciones
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-200 hover:text-studdeo-yellow transition-colors font-montserrat">
+                <a href="/privacidad" className="text-gray-200 hover:text-studdeo-yellow transition-colors font-montserrat">
                   Política de privacidad
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-200 hover:text-studdeo-yellow transition-colors font-montserrat">
+                <a href="/soporte" className="text-gray-200 hover:text-studdeo-yellow transition-colors font-montserrat">
                   Ayuda y soporte
                 </a>
               </li>
@@ -52,7 +52,7 @@ const Footer: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="border-t border-purple-700 pt-6 text-center text-base text-gray-300">
+        <div className="border-t border-studdeo-yellow pt-6 text-center text-base text-gray-300">
           <p>© 2025 Studdeo. Todos los derechos reservados.</p>
         </div>
       </div>
