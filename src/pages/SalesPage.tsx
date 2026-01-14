@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DollarSign, CheckCircle, Clock } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, ChevronRight } from 'lucide-react';
 import SideBar from '../components/Dashboard/SideBar';
 import { Card, CardContent } from '../components/ui/card';
 import { authenticatedFetchJSON } from '../lib/api';
@@ -23,7 +23,6 @@ interface Sale {
   date: string;
   details_sale: DetailSale[];
   buyer: Buyer;
-  calculated_subtotal: number;
 }
 
 interface CourseWithSales {
@@ -31,15 +30,40 @@ interface CourseWithSales {
   name: string;
   description: string;
   product_id: number;
+  user_id: number;
+  create_date: string;
   sales: Sale[];
   calculated_total: number;
+}
+
+interface TableRow {
+  date: string;
+  courseName: string;
+  studentName: string;
+  buyer: Buyer;
+  totalAmount: number;
+  mpCommission: number;
+  commission: number;
+  yourIncome: number;
+  liquidation: {
+    date: string;
+    daysRemaining: number;
+    isPending: boolean;
+  };
+  courseId: number;
 }
 
 const SalesPage: React.FC = () => {
   const [salesData, setSalesData] = useState<CourseWithSales[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'todas' | 'liquidadas' | 'pendientes'>('todas');
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
+  const [courseNameFilter, setCourseNameFilter] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [selectedBuyer, setSelectedBuyer] = useState<Buyer | null>(null);
+  const [isBuyerModalOpen, setIsBuyerModalOpen] = useState(false);
 
   useEffect(() => {
     fetchSales();
@@ -47,33 +71,25 @@ const SalesPage: React.FC = () => {
 
   const fetchSales = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const data = await authenticatedFetchJSON<CourseWithSales[]>(API_ENDPOINTS.sales.base);
-      setSalesData(data);
+      console.log('Datos de ventas recibidos:', data);
+      setSalesData(data || []);
     } catch (error) {
       console.error('Error al obtener ventas:', error);
+      console.error('Endpoint intentado:', API_ENDPOINTS.sales.base);
+      setError('No se pudieron cargar las ventas. Por favor, intenta nuevamente.');
+      setSalesData([]); // Set empty array on error to avoid crashes
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Cálculos de estadísticas
-  const calculateStats = () => {
-    let totalIngresos = 0;
-    let totalLiquidado = 0;
-    let totalPendiente = 0;
-
-    salesData.forEach((course) => {
-      totalIngresos += course.calculated_total;
-      // Por ahora, como ejemplo, vamos a suponer que el 47% está liquidado
-      totalLiquidado += course.calculated_total * 0.47;
-      totalPendiente += course.calculated_total * 0.53;
-    });
-
-    return { totalIngresos, totalLiquidado, totalPendiente };
+  // Función para calcular el total de una venta
+  const calculateSaleTotal = (sale: Sale): number => {
+    return sale.details_sale.reduce((sum, detail) => sum + detail.price * detail.quantity, 0);
   };
-
-  const stats = calculateStats();
 
   // Función para formatear fecha
   const formatDate = (dateString: string) => {
@@ -94,29 +110,94 @@ const SalesPage: React.FC = () => {
     };
   };
 
+  // Cálculos de estadísticas
+  const calculateStats = () => {
+    let totalIngresos = 0;
+    let totalLiquidado = 0;
+    let totalPendiente = 0;
+
+    salesData.forEach((course) => {
+      course.sales.forEach((sale) => {
+        const saleTotal = calculateSaleTotal(sale);
+        const yourIncome = saleTotal * 0.80; // 80% para el vendedor
+        
+        totalIngresos += yourIncome;
+        
+        const liquidationInfo = calculateLiquidationDate(sale.date);
+        if (liquidationInfo.isPending) {
+          totalPendiente += yourIncome;
+        } else {
+          totalLiquidado += yourIncome;
+        }
+      });
+    });
+
+    return { totalIngresos, totalLiquidado, totalPendiente };
+  };
+
+  const stats = calculateStats();
+
+  // Función para normalizar texto (remover acentos y convertir a minúsculas)
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  };
+
   // Preparar datos para la tabla
-  const tableData = salesData.flatMap((course) =>
-    course.sales.map((sale) => ({
-      date: sale.date,
-      courseName: course.name,
-      studentName: sale.buyer.name,
-      totalAmount: sale.calculated_subtotal,
-      mpCommission: sale.calculated_subtotal * 0.10, // Ejemplo: 10%
-      commission: sale.calculated_subtotal * 0.20, // Ejemplo: 20%
-      yourIncome: sale.calculated_subtotal * 0.80, // Ejemplo: 80%
-      liquidation: calculateLiquidationDate(sale.date),
-      courseId: course.external_reference,
-    }))
+  const tableData: TableRow[] = salesData.flatMap((course) =>
+    course.sales.map((sale) => {
+      const totalAmount = calculateSaleTotal(sale);
+      const mpCommission = totalAmount * 0.10; // 10% comisión de Mercado Pago
+      const yourIncome = totalAmount * 0.80; // 80% para el vendedor
+      
+      return {
+        date: sale.date,
+        courseName: course.name,
+        studentName: sale.buyer.name,
+        buyer: sale.buyer,
+        totalAmount: totalAmount,
+        mpCommission: mpCommission,
+        commission: 80, // Porcentaje fijo del 80%
+        yourIncome: yourIncome,
+        liquidation: calculateLiquidationDate(sale.date),
+        courseId: course.external_reference,
+      };
+    })
   );
 
-  // Filtrar datos según tab y curso seleccionado
+  // Filtrar datos según tab, curso seleccionado, nombre y fechas
   const filteredData = tableData.filter((row) => {
     const matchesCourse = selectedCourse === 'all' || row.courseId.toString() === selectedCourse;
+    
+    // Buscar cada palabra del filtro por separado
+    const normalizedCourseName = normalizeText(row.courseName);
+    const searchWords = normalizeText(courseNameFilter).trim().split(/\s+/).filter(word => word.length > 0);
+    const matchesCourseName = searchWords.length === 0 || searchWords.every(word => normalizedCourseName.includes(word));
+    
+    // Filtro de fechas
+    let matchesDateRange = true;
+    if (dateFrom || dateTo) {
+      const rowDate = new Date(row.date);
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        matchesDateRange = matchesDateRange && rowDate >= fromDate;
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        matchesDateRange = matchesDateRange && rowDate <= toDate;
+      }
+    }
+    
     const matchesTab =
       activeTab === 'todas' ||
       (activeTab === 'liquidadas' && !row.liquidation.isPending) ||
       (activeTab === 'pendientes' && row.liquidation.isPending);
-    return matchesCourse && matchesTab;
+    
+    return matchesCourse && matchesCourseName && matchesDateRange && matchesTab;
   });
 
   // Obtener lista única de cursos
@@ -144,6 +225,16 @@ const SalesPage: React.FC = () => {
             <div className="flex items-center justify-center h-64">
               <p className="text-gray-500 font-montserrat">Cargando ventas...</p>
             </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-64">
+              <p className="text-red-600 font-montserrat text-lg mb-4">{error}</p>
+              <button
+                onClick={fetchSales}
+                className="px-4 py-2 bg-studdeo-violet text-white rounded-lg font-montserrat hover:bg-opacity-90"
+              >
+                Reintentar
+              </button>
+            </div>
           ) : (
             <>
               {/* Stats Cards */}
@@ -159,7 +250,7 @@ const SalesPage: React.FC = () => {
                           Ingresos Totales
                         </p>
                         <p className="text-2xl font-bold text-gray-900 font-montserrat">
-                          $ {stats.totalIngresos.toFixed(2)}
+                          $ {stats.totalIngresos.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                     </div>
@@ -177,7 +268,7 @@ const SalesPage: React.FC = () => {
                           Ya Liquidado
                         </p>
                         <p className="text-2xl font-bold text-green-600 font-montserrat">
-                          $ {stats.totalLiquidado.toFixed(2)}
+                          $ {stats.totalLiquidado.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                     </div>
@@ -195,7 +286,7 @@ const SalesPage: React.FC = () => {
                           Pendiente de Liquidar
                         </p>
                         <p className="text-2xl font-bold text-orange-600 font-montserrat">
-                          $ {stats.totalPendiente.toFixed(2)}
+                          $ {stats.totalPendiente.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                     </div>
@@ -206,7 +297,7 @@ const SalesPage: React.FC = () => {
               {/* Table Card */}
               <Card>
                 <CardContent className="p-6">
-                  {/* Tabs and Filter */}
+                  {/* Tabs */}
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex gap-4">
                       <button
@@ -240,19 +331,64 @@ const SalesPage: React.FC = () => {
                         Pendientes
                       </button>
                     </div>
+                  </div>
 
-                    <select
-                      value={selectedCourse}
-                      onChange={(e) => setSelectedCourse(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-md font-montserrat focus:outline-none focus:ring-2 focus:ring-studdeo-violet"
-                    >
-                      <option value="all">Todos los cursos</option>
-                      {uniqueCourses.map((course) => (
-                        <option key={course.id} value={course.id.toString()}>
-                          {course.name}
-                        </option>
-                      ))}
-                    </select>
+                  {/* Filters */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 font-montserrat mb-2">
+                        Buscar curso
+                      </label>
+                      <input
+                        type="text"
+                        value={courseNameFilter}
+                        onChange={(e) => setCourseNameFilter(e.target.value)}
+                        placeholder="Nombre del curso..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md font-montserrat focus:outline-none focus:ring-2 focus:ring-studdeo-violet"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 font-montserrat mb-2">
+                        Filtrar por curso
+                      </label>
+                      <select
+                        value={selectedCourse}
+                        onChange={(e) => setSelectedCourse(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md font-montserrat focus:outline-none focus:ring-2 focus:ring-studdeo-violet"
+                      >
+                        <option value="all">Todos los cursos</option>
+                        {uniqueCourses.map((course) => (
+                          <option key={course.id} value={course.id.toString()}>
+                            {course.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 font-montserrat mb-2">
+                        Fecha desde
+                      </label>
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md font-montserrat focus:outline-none focus:ring-2 focus:ring-studdeo-violet"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 font-montserrat mb-2">
+                        Fecha hasta
+                      </label>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md font-montserrat focus:outline-none focus:ring-2 focus:ring-studdeo-violet"
+                      />
+                    </div>
                   </div>
 
                   {/* Table */}
@@ -309,19 +445,28 @@ const SalesPage: React.FC = () => {
                                 {row.courseName}
                               </td>
                               <td className="py-3 px-4 font-montserrat text-sm text-gray-900">
-                                {row.studentName}
+                                <button
+                                  onClick={() => {
+                                    setSelectedBuyer(row.buyer);
+                                    setIsBuyerModalOpen(true);
+                                  }}
+                                  className="text-studdeo-violet hover:underline cursor-pointer font-medium flex items-center gap-1"
+                                >
+                                  {row.studentName}
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
                               </td>
                               <td className="py-3 px-4 font-montserrat text-sm text-gray-900 text-right">
-                                $ {row.totalAmount.toFixed(2)}
+                                $ {row.totalAmount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className="py-3 px-4 font-montserrat text-sm text-red-600 text-right">
-                                -$ {row.mpCommission.toFixed(2)}
+                                -$ {row.mpCommission.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className="py-3 px-4 font-montserrat text-sm text-gray-600 text-right">
-                                {((row.commission / row.totalAmount) * 100).toFixed(0)}%
+                                {row.commission}%
                               </td>
                               <td className="py-3 px-4 font-montserrat text-sm text-green-600 text-right">
-                                $ {row.yourIncome.toFixed(2)}
+                                $ {row.yourIncome.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className="py-3 px-4 text-center">
                                 {row.liquidation.isPending ? (
@@ -357,6 +502,57 @@ const SalesPage: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Modal de información del comprador */}
+      {isBuyerModalOpen && selectedBuyer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsBuyerModalOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-bold text-gray-900 font-montserrat">Información del Comprador</h3>
+              <button
+                onClick={() => setIsBuyerModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 font-montserrat mb-1">
+                  Nombre
+                </label>
+                <p className="text-base font-montserrat text-gray-900">{selectedBuyer.name}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-600 font-montserrat mb-1">
+                  Email
+                </label>
+                <p className="text-base font-montserrat text-gray-900">{selectedBuyer.emai}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-600 font-montserrat mb-1">
+                  Teléfono
+                </label>
+                <p className="text-base font-montserrat text-gray-900">{selectedBuyer.phone}</p>
+              </div>
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setIsBuyerModalOpen(false)}
+                className="px-4 py-2 bg-studdeo-violet text-white rounded-lg font-montserrat hover:bg-opacity-90"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
