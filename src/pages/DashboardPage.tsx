@@ -61,8 +61,8 @@ interface AdminCourse {
   product_id: number;
   user_id: number;
   create_date: string;
-  students_count?: number;
-  lessons_count?: number;
+  students_count: number;
+  lessons_count: number;
 }
 
 const Dashboard: React.FC = () => {
@@ -160,8 +160,8 @@ const Dashboard: React.FC = () => {
       
       // Filtrar solo las promesas cumplidas y extraer sus valores
       const successfulCourses = enrichedCourses
-        .filter((result): result is PromiseFulfilledResult<AdminCourse> => result.status === 'fulfilled')
-        .map(result => result.value);
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => (result as PromiseFulfilledResult<AdminCourse>).value);
       
       setAdminCourses(successfulCourses);
     } catch (error) {
@@ -201,7 +201,9 @@ const Dashboard: React.FC = () => {
 
   // Cálculos de estadísticas para administrador
   const calculateAdminStats = () => {
-    let totalIngresos = 0;
+    // Sumar todos los calculated_total para ingresos totales
+    const totalIngresos = salesData.reduce((sum, course) => sum + course.calculated_total, 0);
+    
     let totalLiquidado = 0;
     let totalPendiente = 0;
 
@@ -209,8 +211,6 @@ const Dashboard: React.FC = () => {
       course.sales.forEach((sale) => {
         const saleTotal = calculateSaleTotal(sale);
         const yourIncome = saleTotal * 0.80; // 80% para el vendedor
-        
-        totalIngresos += yourIncome;
         
         const liquidationInfo = calculateLiquidationDate(sale.date);
         if (liquidationInfo.isPending) {
@@ -248,7 +248,7 @@ const Dashboard: React.FC = () => {
       cutoffDate = new Date(0); // All time
     }
 
-    const salesByDate: { [key: string]: { date: string, amount: number, rawDate: Date } } = {};
+    const salesByDate: { [key: string]: { date: string, fullDate: string, amount: number, rawDate: Date } } = {};
 
     salesData.forEach((course) => {
       // Filtro por curso si está seleccionado (usando el filtro APLICADO)
