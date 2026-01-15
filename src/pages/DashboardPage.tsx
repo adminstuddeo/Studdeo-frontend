@@ -159,7 +159,6 @@ const Dashboard: React.FC = () => {
       );
       
       // Filtrar solo las promesas cumplidas y extraer sus valores
-      const successfulCourses = enrichedCourses.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
       const successfulCourses = enrichedCourses
         .filter((result) => result.status === 'fulfilled')
         .map((result) => (result as PromiseFulfilledResult<AdminCourse>).value);
