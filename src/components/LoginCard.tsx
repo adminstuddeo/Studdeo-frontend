@@ -209,9 +209,12 @@ const LoginCard: React.FC = () => {
 
           <Button 
             type="submit" 
-            className="w-full bg-studdeo-yellow text-studdeo-violet hover:bg-yellow-500 font-bold font-montserrat py-2 h-auto"
+            className="w-full bg-studdeo-yellow text-studdeo-violet hover:bg-yellow-500 font-bold font-montserrat py-2 h-auto flex items-center justify-center gap-2"
             disabled={isLoading || (lockoutTime !== null && Date.now() < lockoutTime)}
           >
+            {isLoading && (
+              <div className="w-4 h-4 border-2 border-studdeo-violet border-t-transparent rounded-full animate-spin"></div>
+            )}
             {isLoading ? 'Iniciando sesión...' : 
              (lockoutTime && remainingTime > 0) ? `Bloqueado (${remainingTime}s)` : 
              'Iniciar Sesión'}

@@ -355,7 +355,8 @@ const Dashboard: React.FC = () => {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center h-64">
+            <div className="flex flex-col items-center justify-center h-64 gap-3">
+              <div className="w-12 h-12 border-4 border-gray-200 border-t-studdeo-violet rounded-full animate-spin"></div>
               <p className="text-gray-500 font-montserrat">Cargando datos...</p>
             </div>
           ) : error ? (
@@ -508,8 +509,11 @@ const Dashboard: React.FC = () => {
                           <button
                             onClick={() => fetchSalesData()}
                             disabled={isLoadingSales}
-                            className="w-full px-4 py-2 bg-gray-600 text-white rounded-md font-montserrat hover:bg-opacity-90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            className="w-full px-4 py-2 bg-gray-600 text-white rounded-md font-montserrat hover:bg-opacity-90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                           >
+                            {isLoadingSales && (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            )}
                             {isLoadingSales ? 'Cargando...' : 'Regenerar gráfico'}
                           </button>
                         </div>
@@ -557,7 +561,8 @@ const Dashboard: React.FC = () => {
                         Todos los Cursos de la Aplicación
                       </h3>
                       {isLoadingCourses ? (
-                        <div className="text-center py-12">
+                        <div className="flex flex-col items-center justify-center py-12 gap-3">
+                          <div className="w-12 h-12 border-4 border-gray-200 border-t-studdeo-violet rounded-full animate-spin"></div>
                           <p className="text-gray-500 font-montserrat">Cargando cursos...</p>
                         </div>
                       ) : adminCourses.length === 0 ? (

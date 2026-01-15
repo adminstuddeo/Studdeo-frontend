@@ -123,7 +123,8 @@ const CoursesPage: React.FC = () => {
 
           {/* Courses Grid */}
           {loading ? (
-            <div className="flex justify-center items-center h-64">
+            <div className="flex flex-col justify-center items-center h-64 gap-3">
+              <div className="w-12 h-12 border-4 border-gray-200 border-t-studdeo-violet rounded-full animate-spin"></div>
               <p className="text-gray-600 font-montserrat">Cargando cursos...</p>
             </div>
           ) : filteredCourses.length === 0 ? (

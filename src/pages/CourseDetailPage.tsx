@@ -107,7 +107,8 @@ const CourseDetailPage: React.FC = () => {
     return (
       <div className="flex h-screen bg-gray-50">
         <SideBar />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-studdeo-violet rounded-full animate-spin"></div>
           <p className="text-gray-600 font-montserrat">Cargando...</p>
         </div>
       </div>
