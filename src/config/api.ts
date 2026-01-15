@@ -25,5 +25,8 @@ export const API_ENDPOINTS = {
     lessons: (external_reference: string) => `/course/${external_reference}/lessons`,
     students: (external_reference: string) => `/course/${external_reference}/students?course_id=${external_reference}`,
   },
+  administrator: {
+    courses: '/administrator/courses',
+  },
   // Agregar más endpoints aquí según sea necesario
 } as const;

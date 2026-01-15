@@ -16,7 +16,6 @@ const SideBar: React.FC = () => {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Resumen', path: '/dashboard' },
     { icon: BookOpen, label: 'Cursos', path: '/cursos' },
-    { icon: BarChart3, label: 'Métricas', path: '/metricas' },
     { icon: DollarSign, label: 'Ventas', path: '/ventas' },
   ];
 
