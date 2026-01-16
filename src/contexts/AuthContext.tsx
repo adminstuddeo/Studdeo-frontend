@@ -150,8 +150,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  const hasPermission = (action: string) => {
-    // Por ahora todos los usuarios autenticados tienen los mismos permisos
+  const hasPermission = () => {
+    // Por ahora todos los usuarios autenticados tienen los mismos permisos # TODO: revisar
     return isAuthenticated;
   };
 

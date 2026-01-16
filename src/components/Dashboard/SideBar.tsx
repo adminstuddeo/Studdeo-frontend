@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/Studdeo.png';
-import { LayoutDashboard, BookOpen, BarChart3, DollarSign, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, DollarSign, LogOut } from 'lucide-react';
 
 const SideBar: React.FC = () => {
   const { user, logout } = useAuth();
