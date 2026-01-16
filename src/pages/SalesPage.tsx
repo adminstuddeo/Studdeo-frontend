@@ -153,11 +153,6 @@ const SalesPage: React.FC = () => {
     fetchSales(true);
   };
 
-  // Función para calcular el total de una venta
-  const calculateSaleTotal = (sale: Sale): number => {
-    return sale.details_sale.reduce((sum, detail) => sum + detail.price * detail.quantity, 0);
-  };
-
   // Función para formatear fecha
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -312,7 +307,7 @@ const SalesPage: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-64">
               <p className="text-red-600 font-montserrat text-lg mb-4">{error}</p>
               <button
-                onClick={fetchSales}
+                onClick={() => fetchSales(true)}
                 className="px-4 py-2 bg-studdeo-violet text-white rounded-lg font-montserrat hover:bg-opacity-90"
               >
                 Reintentar

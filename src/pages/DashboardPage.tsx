@@ -26,6 +26,8 @@ interface Sale {
   date: string;
   details_sale: DetailSale[];
   buyer: Buyer;
+  discount: number;
+  total: number;
 }
 
 interface CourseWithSales {
@@ -255,11 +257,6 @@ const Dashboard: React.FC = () => {
     setIsLoading(false);
   };
 
-  // Función para calcular el total de una venta
-  const calculateSaleTotal = (sale: Sale): number => {
-    return sale.details_sale.reduce((sum, detail) => sum + detail.price * detail.quantity, 0);
-  };
-
   // Función para calcular la liquidación (15 días después)
   const calculateLiquidationDate = (saleDate: string) => {
     const date = new Date(saleDate);
@@ -323,7 +320,7 @@ const Dashboard: React.FC = () => {
       cutoffDate.setDate(now.getDate() - 90);
     }
 
-    const salesByDate: { [key: string]: { date: string, amount: number, rawDate: Date } } = {};
+    const salesByDate: { [key: string]: { date: string, fullDate: string, amount: number, rawDate: Date } } = {};
 
     salesData.forEach((course) => {
       // Filtro por curso si está seleccionado
