@@ -89,6 +89,30 @@ const Dashboard: React.FC = () => {
   const SALES_CACHE_KEY = 'dashboard_sales_cache';
   const COURSES_CACHE_KEY = 'dashboard_courses_cache';
 
+  // Función para recalcular el total correcto de una venta
+  const recalculateSaleTotal = (sale: Sale): number => {
+    const subtotal = sale.details_sale.reduce((sum, detail) => 
+      sum + (detail.price * detail.quantity), 0
+    );
+    return subtotal + sale.discount; // discount es negativo para descuentos
+  };
+
+  // Función para validar y corregir totales de ventas
+  const validateAndFixSalesData = (courses: CourseWithSales[]): CourseWithSales[] => {
+    return courses.map(course => ({
+      ...course,
+      sales: course.sales.map(sale => {
+        const calculatedTotal = recalculateSaleTotal(sale);
+        // Si el total es incorrecto, usar el calculado
+        if (Math.abs(sale.total - calculatedTotal) > 0.01) {
+          console.warn(`⚠️ Total incorrecto en venta ${sale.external_reference}. Backend: ${sale.total}, Calculado: ${calculatedTotal}`);
+          return { ...sale, total: calculatedTotal };
+        }
+        return sale;
+      })
+    }));
+  };
+
   // Utilidad para obtener datos del caché
   const getCachedData = <T,>(key: string): T | null => {
     try {
@@ -161,11 +185,12 @@ const Dashboard: React.FC = () => {
       const sales = await authenticatedFetchJSON<CourseWithSales[]>(API_ENDPOINTS.sales.base);
       console.log('Sales data received:', sales);
       
-      const salesData = sales || [];
-      setSalesData(salesData);
+      // Validar y corregir totales antes de guardar
+      const validatedSales = validateAndFixSalesData(sales || []);
+      setSalesData(validatedSales);
       
       // Guardar en caché
-      setCachedData(SALES_CACHE_KEY, salesData);
+      setCachedData(SALES_CACHE_KEY, validatedSales);
     } catch (error) {
       console.error('Error al obtener ventas:', error);
       setSalesData([]);
@@ -339,7 +364,7 @@ const Dashboard: React.FC = () => {
         const dateKey = saleDate.toISOString().split('T')[0]; // YYYY-MM-DD
         const formattedDate = formatDateForChart(sale.date);
         const fullDate = saleDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-        const income = sale.total * 0.80;
+        const income = sale.total; // Mostrar el total real
         
         if (salesByDate[dateKey]) {
           salesByDate[dateKey].amount += income;
