@@ -27,6 +27,8 @@ export const API_ENDPOINTS = {
   },
   administrator: {
     courses: '/administrator/courses',
+    lessons: (external_reference: string) => `/administrator/courses/${external_reference}/lessons`,
+    students: (external_reference: string) => `/administrator/courses/${external_reference}/students`,
   },
   user: {
     create: '/users/',

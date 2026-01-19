@@ -339,16 +339,6 @@ const Dashboard: React.FC = () => {
     return null;
   };
 
-  // Formatear fecha completa para otros usos
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
   // Obtener lista única de cursos para el filtro
   const uniqueCourses = salesData.map((course) => ({
     id: course.external_reference,
