@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import SalesPage from './pages/SalesPage';
@@ -12,7 +13,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <Router>
+    <>
+      <Toaster position="top-right" richColors />
+      <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -54,6 +57,7 @@ function App() {
         <Route path="/" element={<LoginPage />} />
       </Routes>
     </Router>
+    </>
   );
 }
 

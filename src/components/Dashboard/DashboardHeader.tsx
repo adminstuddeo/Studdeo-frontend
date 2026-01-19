@@ -1,5 +1,6 @@
 import { UserPlus } from "lucide-react";
 import React, { useState } from "react";
+import { toast } from "sonner";
 import { API_BASE_URL, API_ENDPOINTS } from "../../config/api";
 import type { User } from "../../contexts/AuthContext";
 import { Button } from "../ui/button";
@@ -10,6 +11,11 @@ interface ProfessorData {
   name: string;
   email: string;
   active: boolean;
+}
+
+interface ContractDates {
+  validFrom: string;
+  validTo: string;
 }
 
 interface DashboardHeaderProps {
@@ -37,6 +43,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user }) => {
   const handleCreateUser = async (
     professorData: ProfessorData,
     percentage: number,
+    contractDates: ContractDates,
   ) => {
     setIsSubmitting(true);
     try {
@@ -45,16 +52,24 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user }) => {
       // Separar nombre y apellido (asumiendo que el nombre tiene formato "Nombre Apellido")
       const nameParts = professorData.name.split(" ");
       const name = nameParts[0] || professorData.name;
-      const lastname = nameParts.slice(1).join(' ') || name; // Si no hay apellido, usar el nombre
+      const lastname = nameParts.slice(1).join(' ') || name;
       
-      // Construir el body según el formato requerido
+      // Convertir las fechas a formato ISO con hora
+      const validFrom = new Date(contractDates.validFrom).toISOString();
+      const validTo = new Date(contractDates.validTo).toISOString();
+      
+      // Construir el body según el formato requerido por el backend
       const body = {
         name: name,
         lastname: lastname,
         email: professorData.email,
-        role_name: 'teacher',
+        role: 'teacher',
         password: generateSecurePassword(),
-        id_role: 2 // ID de rol para teacher (ajustar según tu backend)
+        contract: {
+          percentaje: percentage,
+          valid_from: validFrom,
+          valid_to: validTo
+        }
       };
 
       console.log("Creando usuario con datos:", body);
@@ -79,13 +94,16 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user }) => {
 
       await response.json();
       
-      alert(`Usuario creado exitosamente\n\nEl profesor recibirá sus credenciales por correo electrónico a: ${professorData.email}\n\nPorcentaje asignado: ${percentage}% (se configurará próximamente)`);
+      const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('es-ES');
+      toast.success('Usuario creado exitosamente', {
+        description: `Credenciales enviadas a ${professorData.email}. Comisión: ${percentage}%. Vigencia: ${formatDate(contractDates.validFrom)} - ${formatDate(contractDates.validTo)}`
+      });
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error creating user:", error);
-      alert(
-        error instanceof Error ? error.message : "Error al crear el usuario",
-      );
+      toast.error('Error al crear usuario', {
+        description: error instanceof Error ? error.message : 'Ocurrió un error inesperado'
+      });
     } finally {
       setIsSubmitting(false);
     }

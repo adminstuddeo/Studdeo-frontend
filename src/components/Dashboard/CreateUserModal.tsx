@@ -1,5 +1,6 @@
-import { Search, Trash2, X } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { API_ENDPOINTS } from "../../config/api";
 import { authenticatedFetchJSON } from "../../lib/api";
 import { Button } from "../ui/button";
@@ -19,10 +20,15 @@ interface ProfessorData {
   active: boolean;
 }
 
+interface ContractDates {
+  validFrom: string;
+  validTo: string;
+}
+
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (professorData: ProfessorData, percentage: number) => void;
+  onSubmit: (professorData: ProfessorData, percentage: number, contractDates: ContractDates) => void;
 }
 
 const CreateUserModal: React.FC<CreateUserModalProps> = ({
@@ -39,10 +45,19 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [isLoadingProfessors, setIsLoadingProfessors] = useState(false);
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
   const [showDropdown, setShowDropdown] = useState<Record<string, boolean>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Fechas del contrato - por defecto hoy y sin fecha de fin
+  const today = new Date().toLocaleDateString('en-CA');
+  const [validFrom, setValidFrom] = useState(today);
+  const [validTo, setValidTo] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       fetchProfessors();
+      // Reset dates when opening modal
+      setValidFrom(today);
+      setValidTo('');
     }
   }, [isOpen]);
 
@@ -65,12 +80,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   };
 
   if (!isOpen) return null;
-
-  const handleRemoveProfessor = (id: string) => {
-    if (professors.length > 1) {
-      setProfessors(professors.filter((prof) => prof.id !== id));
-    }
-  };
 
   const handleProfessorChange = (
     id: string,
@@ -131,11 +140,42 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     );
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const professor = professors[0];
     if (!professor.professorId || !professor.percentage) {
-      alert("Por favor completa todos los campos");
+      toast.error('Campos incompletos', {
+        description: 'Por favor completa todos los campos requeridos'
+      });
       return;
+    }
+
+    if (!validFrom || !validTo) {
+      toast.error('Fechas requeridas', {
+        description: 'Por favor selecciona las fechas del contrato'
+      });
+      return;
+    }
+
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    const fromDate = new Date(validFrom);
+
+    if (validTo) {
+      const toDate = new Date(validTo);
+
+      if (toDate < currentDate) {
+        toast.error('Fecha inválida', {
+          description: 'La fecha de fin no puede ser anterior a la fecha actual'
+        });
+        return;
+      }
+
+      if (fromDate >= toDate) {
+        toast.error('Fechas inválidas', {
+          description: 'La fecha de inicio debe ser anterior a la fecha de fin'
+        });
+        return;
+      }
     }
 
     const selectedProf = availableProfessors.find(
@@ -143,14 +183,23 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     );
 
     if (!selectedProf) {
-      alert("Profesor no encontrado");
+      toast.error('Profesor no encontrado', {
+        description: 'El profesor seleccionado no existe'
+      });
       return;
     }
 
-    onSubmit(selectedProf, professor.percentage);
+    setIsSubmitting(true);
+    try {
+      await onSubmit(selectedProf, professor.percentage, { validFrom, validTo });
 
-    // Reset form
-    setProfessors([{ id: "1", professorId: "", percentage: 0 }]);
+      // Reset form
+      setProfessors([{ id: "1", professorId: "", percentage: 0 }]);
+      setValidFrom(today);
+      setValidTo('');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -183,19 +232,27 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </Label>
           </div>
 
-          <div className="space-y-4">
-            {professors.map((professor) => (
-              <div
-                key={professor.id}
-                className="grid grid-cols-12 gap-4 items-end"
-              >
-                <div className="col-span-6">
-                  <Label
-                    htmlFor={`professor-${professor.id}`}
-                    className="text-gray-900 font-montserrat mb-2"
-                  >
-                    Profesor
-                  </Label>
+          {isLoadingProfessors ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-studdeo-violet mx-auto mb-2" />
+                <p className="text-sm text-gray-500 font-montserrat">Cargando profesores...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {professors.map((professor) => (
+                <div
+                  key={professor.id}
+                  className="grid grid-cols-2 gap-4 items-end"
+                >
+                  <div>
+                    <Label
+                      htmlFor={`professor-${professor.id}`}
+                      className="text-gray-900 font-montserrat mb-2"
+                    >
+                      Profesor
+                    </Label>
                   <div className="space-y-2">
                     {getSelectedProfessor(professor.id) ? (
                       <div className="flex items-center gap-2 p-3 border border-gray-300 rounded-md bg-gray-50">
@@ -217,10 +274,14 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                       </div>
                     ) : (
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10" />
+                        {isLoadingProfessors ? (
+                          <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-studdeo-violet w-4 h-4 z-10 animate-spin" />
+                        ) : (
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10" />
+                        )}
                         <Input
                           type="text"
-                          placeholder="Buscar por nombre o email..."
+                          placeholder={isLoadingProfessors ? "Cargando profesores..." : "Buscar por nombre o email..."}
                           value={searchTerms[professor.id] || ""}
                           onChange={(e) =>
                             handleSearchChange(professor.id, e.target.value)
@@ -232,7 +293,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                             })
                           }
                           className="pl-10 font-montserrat"
-                          disabled={isLoadingProfessors}
+                          readOnly={isLoadingProfessors}
                         />
                         {showDropdown[professor.id] &&
                           getFilteredProfessors(professor.id).length > 0 && (
@@ -276,7 +337,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                   </div>
                 </div>
 
-                <div className="col-span-5">
+                <div>
                   <Label
                     htmlFor={`percentage-${professor.id}`}
                     className="text-gray-900 font-montserrat mb-2"
@@ -305,19 +366,106 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                     className="font-montserrat"
                   />
                 </div>
-
-                <div className="col-span-1 flex items-center justify-center pb-2">
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveProfessor(professor.id)}
-                    disabled={professors.length === 1}
-                    className="text-red-500 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Contract Dates Section */}
+        <div className="mb-6 pb-6 border-b">
+          <div className="mb-4">
+            <Label className="text-gray-900 font-montserrat">
+              Vigencia del Contrato
+            </Label>
+            <p className="text-sm text-gray-500 font-montserrat mt-1">
+              Selecciona el período de vigencia o usa una duración rápida
+            </p>
+          </div>
+          
+          {/* Quick Duration Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                const start = new Date();
+                const end = new Date(start);
+                end.setMonth(end.getMonth() + 3);
+                setValidFrom(start.toISOString().split('T')[0]);
+                setValidTo(end.toISOString().split('T')[0]);
+              }}
+              className="px-3 py-1.5 text-sm bg-studdeo-violet/10 hover:bg-studdeo-violet/20 text-studdeo-violet rounded-md font-montserrat transition-colors"
+            >
+              3 meses
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const start = new Date();
+                const end = new Date(start);
+                end.setMonth(end.getMonth() + 6);
+                setValidFrom(start.toISOString().split('T')[0]);
+                setValidTo(end.toISOString().split('T')[0]);
+              }}
+              className="px-3 py-1.5 text-sm bg-studdeo-violet/10 hover:bg-studdeo-violet/20 text-studdeo-violet rounded-md font-montserrat transition-colors"
+            >
+              6 meses
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const start = new Date();
+                const end = new Date(start);
+                end.setFullYear(end.getFullYear() + 1);
+                setValidFrom(start.toISOString().split('T')[0]);
+                setValidTo(end.toISOString().split('T')[0]);
+              }}
+              className="px-3 py-1.5 text-sm bg-studdeo-violet/10 hover:bg-studdeo-violet/20 text-studdeo-violet rounded-md font-montserrat transition-colors"
+            >
+              1 año
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const start = new Date();
+                const end = new Date(start);
+                end.setFullYear(end.getFullYear() + 2);
+                setValidFrom(start.toISOString().split('T')[0]);
+                setValidTo(end.toISOString().split('T')[0]);
+              }}
+              className="px-3 py-1.5 text-sm bg-studdeo-violet/10 hover:bg-studdeo-violet/20 text-studdeo-violet rounded-md font-montserrat transition-colors"
+            >
+              2 años
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="validFrom" className="text-gray-900 font-montserrat mb-2">
+                Fecha de Inicio
+              </Label>
+              <Input
+                id="validFrom"
+                type="date"
+                value={validFrom}
+                onChange={(e) => setValidFrom(e.target.value)}
+                min={today}
+                className="font-montserrat"
+              />
+            </div>
+            <div>
+              <Label htmlFor="validTo" className="text-gray-900 font-montserrat mb-2">
+                Fecha de Fin
+              </Label>
+              <Input
+                id="validTo"
+                type="date"
+                value={validTo}
+                onChange={(e) => setValidTo(e.target.value)}
+                min={validFrom || today}
+                className="font-montserrat"
+              />
+            </div>
           </div>
         </div>
 
@@ -328,15 +476,24 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             onClick={onClose}
             variant="outline"
             className="font-montserrat"
+            disabled={isSubmitting}
           >
             Cancelar
           </Button>
           <Button
             type="button"
             onClick={handleSubmit}
+            disabled={isSubmitting}
             className="bg-gray-600 hover:bg-gray-700 text-white font-montserrat"
           >
-            Crear Usuario
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creando...
+              </>
+            ) : (
+              'Crear Usuario'
+            )}
           </Button>
         </div>
       </div>

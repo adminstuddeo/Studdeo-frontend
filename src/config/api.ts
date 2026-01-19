@@ -31,7 +31,7 @@ export const API_ENDPOINTS = {
     students: (external_reference: string) => `/administrator/courses/${external_reference}/students`,
   },
   user: {
-    create: '/users/',
+    create: '/user/',
   },
   // Agregar más endpoints aquí según sea necesario
 } as const;
