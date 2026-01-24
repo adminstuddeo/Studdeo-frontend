@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { DollarSign, CheckCircle, Clock, ChevronRight, RefreshCw } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, ChevronRight, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import SideBar from '../components/Dashboard/SideBar';
 import { Card, CardContent } from '../components/ui/card';
 import { authenticatedFetchJSON } from '../lib/api';
 import { API_ENDPOINTS } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 
-// Constantes para el cache
-const SALES_PAGE_CACHE_KEY = 'sales_page_cache';
+// Constantes para el cache compartido entre Dashboard y SalesPage
+const SALES_CACHE_KEY = 'dashboard_sales_cache'; // Usar la misma clave que DashboardPage
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
 interface Buyer {
@@ -30,6 +30,7 @@ interface Sale {
   buyer: Buyer;
   discount: number;
   total: number;
+  contract_discount: number;
 }
 
 interface CourseWithSales {
@@ -46,11 +47,11 @@ interface CourseWithSales {
 interface TableRow {
   date: string;
   courseName: string;
-  studentName: string;
   buyer: Buyer;
   totalAmount: number;
+  discount: number;
   mpCommission: number;
-  commission: number;
+  contractDiscount: number;
   yourIncome: number;
   liquidation: {
     date: string;
@@ -73,6 +74,8 @@ const SalesPage: React.FC = () => {
   const [customDateTo, setCustomDateTo] = useState<string>('');
   const [selectedBuyer, setSelectedBuyer] = useState<Buyer | null>(null);
   const [isBuyerModalOpen, setIsBuyerModalOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<'date' | 'totalAmount' | 'discount' | 'mpCommission' | 'contractDiscount' | 'yourIncome' | 'liquidation' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const isAdmin = user?.role === 'administrator';
 
@@ -123,7 +126,7 @@ const SalesPage: React.FC = () => {
     try {
       // Intentar obtener datos del cache si no es refresh forzado
       if (!forceRefresh) {
-        const cachedData = getCachedData<CourseWithSales[]>(SALES_PAGE_CACHE_KEY);
+        const cachedData = getCachedData<CourseWithSales[]>(SALES_CACHE_KEY);
         if (cachedData) {
           setSalesData(cachedData);
           setIsLoading(false);
@@ -140,9 +143,9 @@ const SalesPage: React.FC = () => {
       console.log('Datos de ventas recibidos:', data);
       setSalesData(data || []);
       
-      // Guardar en cache
+      // Guardar en cache compartido
       if (data) {
-        setCachedData(SALES_PAGE_CACHE_KEY, data);
+        setCachedData(SALES_CACHE_KEY, data);
       }
     } catch (error) {
       console.error('Error al obtener ventas:', error);
@@ -156,7 +159,7 @@ const SalesPage: React.FC = () => {
 
   // Función para limpiar cache y refrescar
   const handleRefreshData = () => {
-    sessionStorage.removeItem(SALES_PAGE_CACHE_KEY);
+    sessionStorage.removeItem(SALES_CACHE_KEY);
     console.log('🗑️ Caché limpiado, actualizando datos...');
     fetchSales(true);
   };
@@ -180,35 +183,6 @@ const SalesPage: React.FC = () => {
     };
   };
 
-  // Cálculos de estadísticas
-  const calculateStats = () => {
-    let totalIngresos = 0;
-    let totalLiquidado = 0;
-    let totalPendiente = 0;
-
-    salesData.forEach((course) => {
-      course.sales.forEach((sale) => {
-        const saleTotal = sale.total; // Usar el total del JSON que ya incluye descuentos
-        const mpCommission = saleTotal * 0.043; // 4.3% comisión de Mercado Pago
-        const afterMPCommission = saleTotal - mpCommission;
-        const yourIncome = afterMPCommission * 0.80; // 80% para el vendedor después de comisión MP
-        
-        totalIngresos += yourIncome;
-        
-        const liquidationInfo = calculateLiquidationDate(sale.date);
-        if (liquidationInfo.isPending) {
-          totalPendiente += yourIncome;
-        } else {
-          totalLiquidado += yourIncome;
-        }
-      });
-    });
-
-    return { totalIngresos, totalLiquidado, totalPendiente };
-  };
-
-  const stats = calculateStats();
-
   // Función para normalizar texto (remover acentos y convertir a minúsculas)
   const normalizeText = (text: string): string => {
     return text
@@ -220,19 +194,29 @@ const SalesPage: React.FC = () => {
   // Preparar datos para la tabla
   const tableData: TableRow[] = salesData.flatMap((course) =>
     course.sales.map((sale) => {
-      const totalAmount = sale.total; // Usar el total del JSON
+      const totalAmount = sale.total; // Usar el total del JSON (ya incluye descuento aplicado)
       const mpCommission = totalAmount * 0.043; // 4.3% comisión de Mercado Pago
       const afterMPCommission = totalAmount - mpCommission;
-      const yourIncome = afterMPCommission * 0.80; // 80% para el vendedor después de comisión MP
+      const yourIncome = afterMPCommission * sale.contract_discount; // Usar contract_discount del backend
+      
+      // Log para debug
+      if (sale.discount !== 0) {
+        console.log('Venta con descuento:', {
+          curso: course.name,
+          precioOriginal: sale.details_sale[0]?.price,
+          descuento: sale.discount,
+          total: sale.total
+        });
+      }
       
       return {
         date: sale.date,
         courseName: course.name,
-        studentName: sale.buyer.name,
         buyer: sale.buyer,
         totalAmount: totalAmount,
+        discount: sale.discount,
         mpCommission: mpCommission,
-        commission: 80, // Porcentaje fijo del 80%
+        contractDiscount: sale.contract_discount * 100, // Convertir a porcentaje
         yourIncome: yourIncome,
         liquidation: calculateLiquidationDate(sale.date),
         courseId: course.external_reference,
@@ -284,6 +268,99 @@ const SalesPage: React.FC = () => {
     
     return matchesCourse && matchesCourseName && matchesDateRange && matchesTab;
   });
+
+  // Cálculos de estadísticas basados en datos filtrados visibles en la tabla
+  const calculateStats = () => {
+    let totalIngresos = 0; // Suma de todos los totales del backend
+    let totalLiquidado = 0; // Ganancia real del profesor (liquidado)
+    let totalPendiente = 0; // Ganancia real del profesor (pendiente)
+
+    // Usar filteredData para que las stats coincidan con lo que se ve en la tabla
+    filteredData.forEach((row) => {
+      // Ingresos totales: suma directa del total del backend
+      totalIngresos += row.totalAmount;
+      
+      // Ganancia del profesor (ya calculada en tableData)
+      if (row.liquidation.isPending) {
+        totalPendiente += row.yourIncome;
+      } else {
+        totalLiquidado += row.yourIncome;
+      }
+    });
+
+    return { totalIngresos, totalLiquidado, totalPendiente };
+  };
+
+  const stats = calculateStats();
+
+  // Función para manejar el ordenamiento
+  const handleSort = (column: typeof sortColumn) => {
+    if (sortColumn === column) {
+      // Si ya está ordenado por esta columna, cambiar dirección
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Nueva columna, ordenar descendente por defecto
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  // Aplicar ordenamiento a los datos filtrados
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let aValue: any;
+    let bValue: any;
+
+    switch (sortColumn) {
+      case 'date':
+        aValue = new Date(a.date).getTime();
+        bValue = new Date(b.date).getTime();
+        break;
+      case 'totalAmount':
+        aValue = a.totalAmount;
+        bValue = b.totalAmount;
+        break;
+      case 'discount':
+        aValue = a.discount;
+        bValue = b.discount;
+        break;
+      case 'mpCommission':
+        aValue = a.mpCommission;
+        bValue = b.mpCommission;
+        break;
+      case 'contractDiscount':
+        aValue = a.contractDiscount;
+        bValue = b.contractDiscount;
+        break;
+      case 'yourIncome':
+        aValue = a.yourIncome;
+        bValue = b.yourIncome;
+        break;
+      case 'liquidation':
+        aValue = new Date(a.liquidation.date).getTime();
+        bValue = new Date(b.liquidation.date).getTime();
+        break;
+      default:
+        return 0;
+    }
+
+    if (sortDirection === 'asc') {
+      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+    } else {
+      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+    }
+  });
+
+  // Componente para el icono de ordenamiento
+  const SortIcon: React.FC<{ column: typeof sortColumn }> = ({ column }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="w-4 h-4 text-studdeo-violet" />
+      : <ArrowDown className="w-4 h-4 text-studdeo-violet" />;
+  };
 
   // Obtener lista única de cursos
   const uniqueCourses = salesData.map((course) => ({
@@ -516,7 +593,7 @@ const SalesPage: React.FC = () => {
                   )}
 
                   {/* Table */}
-                  {filteredData.length === 0 ? (
+                  {sortedData.length === 0 ? (
                     <div className="text-center py-12">
                       <p className="text-gray-500 font-montserrat text-lg">
                         No hay ventas registradas
@@ -534,37 +611,79 @@ const SalesPage: React.FC = () => {
                             <table className="min-w-full divide-y divide-gray-200">
                           <thead>
                             <tr className="border-b border-gray-200">
-                              <th className="text-left py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap">
-                                Fecha
+                              <th 
+                                onClick={() => handleSort('date')}
+                                className="text-left py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-50 select-none"
+                              >
+                                <div className="flex items-center gap-1">
+                                  Fecha
+                                  <SortIcon column="date" />
+                                </div>
                               </th>
                               <th className="text-left py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700">
                                 Curso
                               </th>
-                              <th className="text-left py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700">
-                                Estudiante
+                              <th 
+                                onClick={() => handleSort('totalAmount')}
+                                className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-50 select-none"
+                              >
+                                <div className="flex items-center justify-end gap-1">
+                                  Monto Total
+                                  <SortIcon column="totalAmount" />
+                                </div>
                               </th>
-                              <th className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap">
-                                Monto Total
+                              <th 
+                                onClick={() => handleSort('discount')}
+                                className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-50 select-none"
+                              >
+                                <div className="flex items-center justify-end gap-1">
+                                  Descuento
+                                  <SortIcon column="discount" />
+                                </div>
                               </th>
-                              <th className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap">
-                                Comisión MP
+                              <th 
+                                onClick={() => handleSort('mpCommission')}
+                                className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-50 select-none"
+                              >
+                                <div className="flex items-center justify-end gap-1">
+                                  Comisión MP
+                                  <SortIcon column="mpCommission" />
+                                </div>
                               </th>
-                              <th className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap">
-                                Comisión
+                              <th 
+                                onClick={() => handleSort('contractDiscount')}
+                                className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-50 select-none"
+                              >
+                                <div className="flex items-center justify-end gap-1">
+                                  % Contrato
+                                  <SortIcon column="contractDiscount" />
+                                </div>
                               </th>
-                              <th className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap">
-                                Tu Ingreso
+                              <th 
+                                onClick={() => handleSort('yourIncome')}
+                                className="text-right py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-50 select-none"
+                              >
+                                <div className="flex items-center justify-end gap-1">
+                                  Tu Ingreso
+                                  <SortIcon column="yourIncome" />
+                                </div>
                               </th>
                               <th className="text-center py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap">
                                 Estado
                               </th>
-                              <th className="text-left py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap">
-                                Liquidación
+                              <th 
+                                onClick={() => handleSort('liquidation')}
+                                className="text-left py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:bg-gray-50 select-none"
+                              >
+                                <div className="flex items-center gap-1">
+                                  Liquidación
+                                  <SortIcon column="liquidation" />
+                                </div>
                               </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredData.map((row, index) => (
+                            {sortedData.map((row, index) => (
                               <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                                 <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-gray-900 whitespace-nowrap">
                                   {formatDate(row.date)}
@@ -572,26 +691,23 @@ const SalesPage: React.FC = () => {
                                 <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-gray-900 max-w-xs truncate">
                                   {row.courseName}
                                 </td>
-                                <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-gray-900">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedBuyer(row.buyer);
-                                      setIsBuyerModalOpen(true);
-                                    }}
-                                    className="text-studdeo-violet hover:underline cursor-pointer font-medium flex items-center gap-1 max-w-xs truncate"
-                                  >
-                                    {row.studentName}
-                                    <ChevronRight className="w-3 h-3 xl:w-4 xl:h-4 flex-shrink-0" />
-                                  </button>
-                                </td>
                                 <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-gray-900 text-right whitespace-nowrap">
                                   $ {row.totalAmount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-right whitespace-nowrap">
+                                  {row.discount !== 0 ? (
+                                    <span className={row.discount < 0 ? "text-red-600" : "text-green-600"}>
+                                      {row.discount < 0 ? '-' : '+'}$ {Math.abs(row.discount).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
                                 </td>
                                 <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-red-600 text-right whitespace-nowrap">
                                   -$ {row.mpCommission.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </td>
                                 <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-gray-600 text-right whitespace-nowrap">
-                                  {row.commission}%
+                                  {row.contractDiscount.toFixed(0)}%
                                 </td>
                                 <td className="py-3 px-2 xl:px-4 font-montserrat text-xs xl:text-sm text-green-600 text-right whitespace-nowrap">
                                   $ {row.yourIncome.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -628,7 +744,7 @@ const SalesPage: React.FC = () => {
 
                       {/* Vista Mobile - Cards */}
                       <div className="lg:hidden space-y-4">
-                        {filteredData.map((row, index) => (
+                        {sortedData.map((row, index) => (
                           <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                             {/* Header de la card */}
                             <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
@@ -657,21 +773,6 @@ const SalesPage: React.FC = () => {
                               <p className="text-sm font-medium text-gray-900 font-montserrat">{row.courseName}</p>
                             </div>
 
-                            {/* Estudiante */}
-                            <div className="mb-3">
-                              <p className="text-xs text-gray-500 font-montserrat mb-1">Estudiante</p>
-                              <button
-                                onClick={() => {
-                                  setSelectedBuyer(row.buyer);
-                                  setIsBuyerModalOpen(true);
-                                }}
-                                className="text-sm text-studdeo-violet hover:underline cursor-pointer font-medium flex items-center gap-1 font-montserrat"
-                              >
-                                {row.studentName}
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </div>
-
                             {/* Montos */}
                             <div className="grid grid-cols-2 gap-3 mb-3">
                               <div>
@@ -681,17 +782,34 @@ const SalesPage: React.FC = () => {
                                 </p>
                               </div>
                               <div>
-                                <p className="text-xs text-gray-500 font-montserrat mb-1">Comisión MP</p>
-                                <p className="text-sm font-semibold text-red-600 font-montserrat">
-                                  -$ {row.mpCommission.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
+                                <p className="text-xs text-gray-500 font-montserrat mb-1">Descuento</p>
+                                {row.discount !== 0 ? (
+                                  <p className={`text-sm font-semibold font-montserrat ${row.discount < 0 ? "text-red-600" : "text-green-600"}`}>
+                                    {row.discount < 0 ? '-' : '+'}$ {Math.abs(row.discount).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm font-semibold text-gray-400 font-montserrat">-</p>
+                                )}
                               </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 mb-3">
                               <div>
-                                <p className="text-xs text-gray-500 font-montserrat mb-1">Comisión</p>
-                                <p className="text-sm font-semibold text-gray-900 font-montserrat">{row.commission}%</p>
+                                <p className="text-xs text-gray-500 font-montserrat mb-1">Comisión MP</p>
+                                <p className="text-sm font-semibold text-red-600 font-montserrat">
+                                  -$ {row.mpCommission.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 font-montserrat mb-1">% Contrato</p>
+                                <p className="text-sm font-semibold text-gray-900 font-montserrat">{row.contractDiscount.toFixed(0)}%</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                              <div>
+                                <p className="text-xs text-gray-500 font-montserrat mb-1">% Contrato</p>
+                                <p className="text-sm font-semibold text-gray-900 font-montserrat">{row.contractDiscount.toFixed(0)}%</p>
                               </div>
                               <div>
                                 <p className="text-xs text-gray-500 font-montserrat mb-1">Tu Ingreso</p>

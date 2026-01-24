@@ -19,10 +19,16 @@ const SideBar: React.FC = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutModal(false);
+    handleLogout();
   };
 
   const menuItems = [
@@ -156,7 +162,7 @@ const SideBar: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutModal(true)}
               className={`flex items-center gap-3 w-full px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors font-montserrat group relative ${
                 isCollapsed ? "justify-center" : ""
               }`}
@@ -178,6 +184,36 @@ const SideBar: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-gray-900 font-montserrat mb-2">
+                Cerrar Sesión
+              </h3>
+              <p className="text-gray-600 font-montserrat">
+                ¿Estás seguro de que deseas cerrar sesión?
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-end">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-montserrat hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg font-montserrat hover:bg-red-700 transition-colors"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

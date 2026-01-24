@@ -163,6 +163,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     sessionStorage.removeItem("access_token");
     sessionStorage.removeItem("token_type");
     sessionStorage.removeItem("user_data");
+    
+    // Limpiar caché compartido de ventas
+    sessionStorage.removeItem("dashboard_sales_cache");
+    
     setUser(null);
     setIsAuthenticated(false);
   };

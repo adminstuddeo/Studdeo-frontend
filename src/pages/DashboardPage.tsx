@@ -36,6 +36,7 @@ interface Sale {
   buyer: Buyer;
   discount: number;
   total: number;
+  contract_discount: number;
 }
 
 interface CourseWithSales {
@@ -135,11 +136,7 @@ const Dashboard: React.FC = () => {
 
   // Efecto para cargar datos iniciales (solo sales)
   useEffect(() => {
-    if (isAdmin) {
-      fetchInitialData();
-    } else {
-      setIsLoading(false);
-    }
+    fetchInitialData();
   }, [isAdmin]);
 
   const fetchSalesData = async (forceRefresh: boolean = false) => {
@@ -189,10 +186,10 @@ const Dashboard: React.FC = () => {
     setIsLoading(false);
   };
 
-  // Función para calcular la liquidación (15 días después)
+  // Función para calcular la liquidación (19 días después)
   const calculateLiquidationDate = (saleDate: string) => {
     const date = new Date(saleDate);
-    date.setDate(date.getDate() + 15);
+    date.setDate(date.getDate() + 19);
     const today = new Date();
     const daysRemaining = Math.ceil(
       (date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
@@ -202,21 +199,24 @@ const Dashboard: React.FC = () => {
     };
   };
 
-  // Cálculos de estadísticas para administrador
-  const calculateAdminStats = () => {
-    // Sumar todos los totales de cada venta
+  // Cálculos de estadísticas
+  const calculateStats = () => {
+    // Ingresos totales: suma directa de todos los totales del backend
     const totalIngresos = salesData.reduce(
       (sum, course) =>
         sum + course.sales.reduce((salesSum, sale) => salesSum + sale.total, 0),
       0,
     );
 
-    let totalLiquidado = 0;
-    let totalPendiente = 0;
+    let totalLiquidado = 0; // Ganancia real del profesor (liquidado)
+    let totalPendiente = 0; // Ganancia real del profesor (pendiente)
 
     salesData.forEach((course) => {
       course.sales.forEach((sale) => {
-        const yourIncome = sale.total * 0.8; // 80% para el vendedor
+        // Ganancia del profesor
+        const mpCommission = sale.total * 0.043; // 4.3% comisión de Mercado Pago
+        const afterMPCommission = sale.total - mpCommission;
+        const yourIncome = afterMPCommission * sale.contract_discount; // Usar contract_discount del backend
 
         const liquidationInfo = calculateLiquidationDate(sale.date);
         if (liquidationInfo.isPending) {
@@ -230,9 +230,7 @@ const Dashboard: React.FC = () => {
     return { totalIngresos, totalLiquidado, totalPendiente };
   };
 
-  const stats = isAdmin
-    ? calculateAdminStats()
-    : { totalIngresos: 0, totalLiquidado: 0, totalPendiente: 0 };
+  const stats = calculateStats();
 
   // Formatear fecha para gráfico
   const formatDateForChart = (dateString: string) => {
@@ -348,28 +346,6 @@ const Dashboard: React.FC = () => {
     name: course.name,
   }));
 
-  if (!isAdmin) {
-    // Vista para Teachers (por ahora mantener la original)
-    return (
-      <div className="flex h-screen bg-gray-50">
-        <SideBar />
-        <main className="flex-1 overflow-auto pt-16 lg:pt-0">
-          <div className="p-4 sm:p-6 lg:p-8">
-            <DashboardHeader user={user} />
-            <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-              <hr className="mb-6 border-gray-300" />
-            </div>
-            <div className="text-center py-12">
-              <p className="text-gray-600 font-montserrat text-lg">
-                Dashboard para profesores en desarrollo
-              </p>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen bg-gray-50">
       <SideBar />
@@ -399,7 +375,7 @@ const Dashboard: React.FC = () => {
             </div>
           ) : (
             <>
-              {/* Stats Cards - Solo para Admin */}
+              {/* Stats Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-6">
