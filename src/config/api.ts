@@ -23,12 +23,13 @@ export const API_ENDPOINTS = {
   courses: {
     base: '/course/',
     lessons: (external_reference: string) => `/course/${external_reference}/lessons`,
-    students: (external_reference: string) => `/course/${external_reference}/students?course_id=${external_reference}`,
+    students: (external_reference: string) => `/course/${external_reference}/students`,
   },
   administrator: {
     courses: '/administrator/courses',
-    lessons: (external_reference: string) => `/administrator/courses/${external_reference}/lessons`,
-    students: (external_reference: string) => `/administrator/courses/${external_reference}/students`,
+    lessons: (external_reference: string) => `/administrator/course/${external_reference}/lessons`,
+    students: (external_reference: string) => `/course/${external_reference}/students`,
+    sales: '/administrator/sales',
   },
   user: {
     create: '/user/',

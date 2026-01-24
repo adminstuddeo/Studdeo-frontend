@@ -155,10 +155,13 @@ const Dashboard: React.FC = () => {
     setIsLoadingSales(true);
     try {
       console.log("🌐 Obteniendo datos de ventas del backend...");
-      console.log("Sales endpoint:", API_ENDPOINTS.sales.base);
+      const salesEndpoint = isAdmin 
+        ? API_ENDPOINTS.administrator.sales 
+        : API_ENDPOINTS.sales.base;
+      console.log("Sales endpoint:", salesEndpoint);
 
       const sales = await authenticatedFetchJSON<CourseWithSales[]>(
-        API_ENDPOINTS.sales.base,
+        salesEndpoint,
       );
       console.log("Sales data received:", sales);
 

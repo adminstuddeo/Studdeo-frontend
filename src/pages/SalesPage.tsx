@@ -4,6 +4,7 @@ import SideBar from '../components/Dashboard/SideBar';
 import { Card, CardContent } from '../components/ui/card';
 import { authenticatedFetchJSON } from '../lib/api';
 import { API_ENDPOINTS } from '../config/api';
+import { useAuth } from '../contexts/AuthContext';
 
 // Constantes para el cache
 const SALES_PAGE_CACHE_KEY = 'sales_page_cache';
@@ -60,6 +61,7 @@ interface TableRow {
 }
 
 const SalesPage: React.FC = () => {
+  const { user } = useAuth();
   const [salesData, setSalesData] = useState<CourseWithSales[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +73,8 @@ const SalesPage: React.FC = () => {
   const [customDateTo, setCustomDateTo] = useState<string>('');
   const [selectedBuyer, setSelectedBuyer] = useState<Buyer | null>(null);
   const [isBuyerModalOpen, setIsBuyerModalOpen] = useState(false);
+
+  const isAdmin = user?.role === 'administrator';
 
   useEffect(() => {
     fetchSales();
@@ -128,7 +132,11 @@ const SalesPage: React.FC = () => {
       }
 
       console.log('🔄 Obteniendo datos frescos de ventas del backend...');
-      const data = await authenticatedFetchJSON<CourseWithSales[]>(API_ENDPOINTS.sales.base);
+      const salesEndpoint = isAdmin 
+        ? API_ENDPOINTS.administrator.sales 
+        : API_ENDPOINTS.sales.base;
+      console.log('Endpoint usado:', salesEndpoint);
+      const data = await authenticatedFetchJSON<CourseWithSales[]>(salesEndpoint);
       console.log('Datos de ventas recibidos:', data);
       setSalesData(data || []);
       

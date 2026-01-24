@@ -16,6 +16,7 @@ interface Professor {
 interface ProfessorData {
   external_reference: number;
   name: string;
+  lastname: string;
   email: string;
   active: boolean;
 }
@@ -191,7 +192,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmit(selectedProf, professor.percentage, { validFrom, validTo });
+      await onSubmit(selectedProf, parseFloat(professor.percentage.toString()), { validFrom, validTo });
 
       // Reset form
       setProfessors([{ id: "1", professorId: "", percentage: 0 }]);
@@ -203,24 +204,24 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 relative">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 relative">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 font-montserrat">
+        <div className="flex items-start justify-between mb-4 sm:mb-6">
+          <div className="flex-1 pr-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 font-montserrat">
               Crear Usuario
             </h2>
-            <p className="text-sm text-gray-500 font-montserrat mt-1">
+            <p className="text-xs sm:text-sm text-gray-500 font-montserrat mt-1">
               Selecciona un profesor para crearle una cuenta de usuario con
               porcentaje de comisión
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
@@ -244,12 +245,12 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               {professors.map((professor) => (
                 <div
                   key={professor.id}
-                  className="grid grid-cols-2 gap-4 items-end"
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end"
                 >
                   <div>
                     <Label
                       htmlFor={`professor-${professor.id}`}
-                      className="text-gray-900 font-montserrat mb-2"
+                      className="text-sm sm:text-base text-gray-900 font-montserrat mb-2"
                     >
                       Profesor
                     </Label>
@@ -340,7 +341,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 <div>
                   <Label
                     htmlFor={`percentage-${professor.id}`}
-                    className="text-gray-900 font-montserrat mb-2"
+                    className="text-sm sm:text-base text-gray-900 font-montserrat mb-2"
                   >
                     Porcentaje (%)
                   </Label>
@@ -373,7 +374,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         </div>
 
         {/* Contract Dates Section */}
-        <div className="mb-6 pb-6 border-b">
+        <div className="mb-6">
           <div className="mb-4">
             <Label className="text-gray-900 font-montserrat">
               Vigencia del Contrato
@@ -439,9 +440,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="validFrom" className="text-gray-900 font-montserrat mb-2">
+              <Label htmlFor="validFrom" className="text-sm sm:text-base text-gray-900 font-montserrat mb-2">
                 Fecha de Inicio
               </Label>
               <Input
@@ -454,7 +455,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               />
             </div>
             <div>
-              <Label htmlFor="validTo" className="text-gray-900 font-montserrat mb-2">
+              <Label htmlFor="validTo" className="text-sm sm:text-base text-gray-900 font-montserrat mb-2">
                 Fecha de Fin
               </Label>
               <Input
@@ -470,12 +471,12 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         </div>
 
         {/* Footer Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-4 border-t">
           <Button
             type="button"
             onClick={onClose}
             variant="outline"
-            className="font-montserrat"
+            className="font-montserrat w-full sm:w-auto"
             disabled={isSubmitting}
           >
             Cancelar
@@ -484,7 +485,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="bg-gray-600 hover:bg-gray-700 text-white font-montserrat"
+            className="bg-gray-600 hover:bg-gray-700 text-white font-montserrat w-full sm:w-auto"
           >
             {isSubmitting ? (
               <>

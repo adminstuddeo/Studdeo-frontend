@@ -9,6 +9,7 @@ import CreateUserModal from "./CreateUserModal";
 interface ProfessorData {
   external_reference: number;
   name: string;
+  lastname: string;
   email: string;
   active: boolean;
 }
@@ -49,24 +50,19 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user }) => {
     try {
       const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
       
-      // Separar nombre y apellido (asumiendo que el nombre tiene formato "Nombre Apellido")
-      const nameParts = professorData.name.split(" ");
-      const name = nameParts[0] || professorData.name;
-      const lastname = nameParts.slice(1).join(' ') || name;
-      
       // Convertir las fechas a formato ISO con hora
       const validFrom = new Date(contractDates.validFrom).toISOString();
       const validTo = new Date(contractDates.validTo).toISOString();
       
       // Construir el body según el formato requerido por el backend
       const body = {
-        name: name,
-        lastname: lastname,
+        name: professorData.name,
+        lastname: professorData.lastname,
         email: professorData.email,
         role: 'teacher',
         password: generateSecurePassword(),
         contract: {
-          percentaje: percentage,
+          percentaje: percentage / 100, // Convertir de 0-100 a 0-1
           valid_from: validFrom,
           valid_to: validTo
         }
