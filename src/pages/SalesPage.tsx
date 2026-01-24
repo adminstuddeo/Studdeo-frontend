@@ -379,7 +379,7 @@ const SalesPage: React.FC = () => {
               Ventas y Liquidaciones
             </h1>
             <p className="text-gray-600 font-montserrat mt-2 text-sm sm:text-base">
-              Gestiona tus ventas y seguimiento de liquidaciones de Mercado Pago
+              Gestiona tus ventas y seguimiento de liquidaciones.
             </p>
           </div>
 
